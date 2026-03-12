@@ -396,4 +396,365 @@
         });
     }
 
+    // =========================================
+    // Chat Interface
+    // =========================================
+
+    // DOM Elements for Chat
+    const startChatBtn = document.getElementById('startChatBtn');
+    const chatInterface = document.getElementById('chatInterface');
+    const closeChatBtn = document.getElementById('closeChatBtn');
+    const clearChatBtn = document.getElementById('clearChatBtn');
+    const chatInput = document.getElementById('chatInput');
+    const sendMessageBtn = document.getElementById('sendMessageBtn');
+    const imageGenerateBtn = document.getElementById('imageGenerateBtn');
+    const chatMessages = document.getElementById('chatMessages');
+    const providerOptions = document.querySelectorAll('.provider-option');
+
+    // State
+    let currentProvider = 'openai';
+    let isGenerating = false;
+
+    // Check if elements exist
+    if (!chatInterface || !startChatBtn) return;
+
+    // Open chat interface
+    startChatBtn.addEventListener('click', () => {
+        chatInterface.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        chatInput.focus();
+    });
+
+    // Close chat interface
+    if (closeChatBtn) {
+        closeChatBtn.addEventListener('click', () => {
+            chatInterface.classList.remove('active');
+            document.body.style.overflow = '';
+        });
+    }
+
+    // Clear chat history
+    if (clearChatBtn) {
+        clearChatBtn.addEventListener('click', () => {
+            if (confirm('Clear all messages?')) {
+                if (typeof BmbAI !== 'undefined' && BmbAI.clearHistory) {
+                    BmbAI.clearHistory();
+                }
+                // Keep only welcome message
+                while (chatMessages.children.length > 1) {
+                    chatMessages.removeChild(chatMessages.lastChild);
+                }
+                // Reset to welcome message
+                chatMessages.innerHTML = `
+                    <div class="message">
+                        <div class="message-avatar">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 16v-4M12 8h.01"/>
+                            </svg>
+                        </div>
+                        <div class="message-content">
+                            <div>Hello! I'm BmbAi. How can I help you today?</div>
+                            <div class="message-time">Just now</div>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+    }
+
+    // Auto-resize textarea
+    if (chatInput) {
+        chatInput.addEventListener('input', () => {
+            chatInput.style.height = 'auto';
+            chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
+            
+            // Enable/disable send button
+            sendMessageBtn.disabled = chatInput.value.trim().length === 0 || isGenerating;
+        });
+
+        // Handle Enter and Shift+Enter
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    }
+
+    // Provider selection
+    if (providerOptions.length) {
+        providerOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                providerOptions.forEach(opt => opt.classList.remove('active'));
+                option.classList.add('active');
+                currentProvider = option.dataset.provider;
+                
+                // Show notification
+                addSystemMessage(`Switched to ${option.textContent} provider`);
+            });
+        });
+    }
+
+    // Send message
+    if (sendMessageBtn) {
+        sendMessageBtn.addEventListener('click', sendMessage);
+    }
+
+    // Generate image
+    if (imageGenerateBtn) {
+        imageGenerateBtn.addEventListener('click', generateImage);
+    }
+
+    // Send message function
+    async function sendMessage() {
+        const message = chatInput.value.trim();
+        if (!message || isGenerating) return;
+
+        // Add user message to chat
+        addUserMessage(message);
+        
+        // Clear input
+        chatInput.value = '';
+        chatInput.style.height = 'auto';
+        sendMessageBtn.disabled = true;
+
+        // Show typing indicator
+        const typingId = showTypingIndicator();
+
+        try {
+            isGenerating = true;
+            
+            // Check if BmbAI exists
+            if (typeof BmbAI === 'undefined') {
+                throw new Error('BmbAI API not loaded');
+            }
+            
+            // Send to API
+            const response = await BmbAI.sendMessage(message, currentProvider);
+            
+            // Remove typing indicator
+            removeTypingIndicator(typingId);
+            
+            if (response.success) {
+                // Add AI response
+                addAIMessage(response.message);
+            } else {
+                // Show error
+                addErrorMessage(response.error || 'Failed to get response');
+            }
+        } catch (error) {
+            removeTypingIndicator(typingId);
+            addErrorMessage(error.message);
+        } finally {
+            isGenerating = false;
+            sendMessageBtn.disabled = chatInput.value.trim().length === 0;
+        }
+
+        // Scroll to bottom
+        scrollToBottom();
+    }
+
+    // Generate image function
+    async function generateImage() {
+        const prompt = chatInput.value.trim();
+        if (!prompt || isGenerating) {
+            addErrorMessage('Please enter a description for the image');
+            return;
+        }
+
+        // Add user message
+        addUserMessage(`🎨 Generate image: ${prompt}`);
+        
+        // Clear input
+        chatInput.value = '';
+        chatInput.style.height = 'auto';
+        sendMessageBtn.disabled = true;
+
+        // Show generating indicator
+        const typingId = showTypingIndicator('🎨 Generating image...');
+
+        try {
+            isGenerating = true;
+            
+            if (typeof BmbAI === 'undefined') {
+                throw new Error('BmbAI API not loaded');
+            }
+            
+            // Generate image
+            const response = await BmbAI.generateImage(prompt);
+            
+            // Remove indicator
+            removeTypingIndicator(typingId);
+            
+            if (response.success) {
+                // Add image to chat
+                addImageMessage(response.imageUrl, prompt);
+            } else {
+                addErrorMessage(response.error || 'Failed to generate image');
+            }
+        } catch (error) {
+            removeTypingIndicator(typingId);
+            addErrorMessage(error.message);
+        } finally {
+            isGenerating = false;
+        }
+
+        scrollToBottom();
+    }
+
+    // Helper functions
+    function addUserMessage(text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message user';
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+            </div>
+            <div class="message-content">
+                <div>${escapeHtml(text)}</div>
+                <div class="message-time">${getCurrentTime()}</div>
+            </div>
+        `;
+        chatMessages.appendChild(messageDiv);
+    }
+
+    function addAIMessage(text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 16v-4M12 8h.01"/>
+                </svg>
+            </div>
+            <div class="message-content">
+                <div>${escapeHtml(text).replace(/\n/g, '<br>')}</div>
+                <div class="message-time">${getCurrentTime()}</div>
+            </div>
+        `;
+        chatMessages.appendChild(messageDiv);
+    }
+
+    function addErrorMessage(text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+            </div>
+            <div class="message-content" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.1);">
+                <div>❌ ${escapeHtml(text)}</div>
+                <div class="message-time">${getCurrentTime()}</div>
+            </div>
+        `;
+        chatMessages.appendChild(messageDiv);
+    }
+
+    function addImageMessage(imageUrl, prompt) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="20" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                </svg>
+            </div>
+            <div class="message-content">
+                <div>Generated image for: "${escapeHtml(prompt)}"</div>
+                <div class="image-preview">
+                    <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(prompt)}" loading="lazy">
+                </div>
+                <div class="message-time">${getCurrentTime()}</div>
+            </div>
+        `;
+        chatMessages.appendChild(messageDiv);
+    }
+
+    function addSystemMessage(text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 16v-4M12 8h.01"/>
+                </svg>
+            </div>
+            <div class="message-content" style="color: #10b981; border-color: rgba(16, 185, 129, 0.2); background: rgba(16, 185, 129, 0.1);">
+                <div>✨ ${escapeHtml(text)}</div>
+                <div class="message-time">${getCurrentTime()}</div>
+            </div>
+        `;
+        chatMessages.appendChild(messageDiv);
+    }
+
+    function showTypingIndicator(text = 'BmbAi is typing...') {
+        const indicatorId = 'typing-' + Date.now();
+        const indicatorDiv = document.createElement('div');
+        indicatorDiv.id = indicatorId;
+        indicatorDiv.className = 'message';
+        indicatorDiv.innerHTML = `
+            <div class="message-avatar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 16v-4M12 8h.01"/>
+                </svg>
+            </div>
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        `;
+        chatMessages.appendChild(indicatorDiv);
+        scrollToBottom();
+        return indicatorId;
+    }
+
+    function removeTypingIndicator(id) {
+        const indicator = document.getElementById(id);
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function getCurrentTime() {
+        const now = new Date();
+        return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Close chat with ESC key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && chatInterface.classList.contains('active')) {
+            chatInterface.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+
+    // Prevent closing when clicking inside chat
+    chatInterface.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
 })();
