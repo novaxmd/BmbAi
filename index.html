@@ -57,6 +57,11 @@
         height: 100%;
         margin: 0;
       }
+      @supports (height: 100dvh) {
+        html, body, #root {
+          height: 100dvh;
+        }
+      }
       body {
         background-color: #0f172a;
         color: #e2e8f0;
