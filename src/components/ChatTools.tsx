@@ -3,16 +3,32 @@ import { Send, Bot, User, Trash2, Sparkles, Loader2, MessageSquare, Copy, Check 
 import { sendChatMessage, ChatMessage } from '../services/chatService';
 import { sendProxiedChat, ChatProvider } from '../services/providerService';
 import { ProviderSelector } from './ProviderSelector';
+import LoginPromptModal from './LoginPromptModal';
+import { useAuth } from '../hooks/useAuth';
+import { useChatHistory } from '../hooks/useChatHistory';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-export const ChatTools: React.FC = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'model', text: "Hello! I am Bmb Ai Bot. How can I help you today?" }
-  ]);
+const WELCOME_MESSAGE: ChatMessage = { role: 'model', text: "Hello! I am Bmb Ai Bot. How can I help you today?" };
+const LOGIN_PROMPT_THRESHOLD = 15;
+
+interface ChatToolsProps {
+  activeChatId?: string | null;
+  loadChatTrigger?: number;
+  onChatIdChange?: (id: string | null) => void;
+}
+
+export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadChatTrigger = 0, onChatIdChange }) => {
+  const { user } = useAuth();
+  const { createChat, loadChat, addMessage } = useChatHistory();
+
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [provider, setProvider] = useState<ChatProvider>('gemini');
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [dismissedLoginPrompt, setDismissedLoginPrompt] = useState(false);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(activeChatId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -21,16 +37,66 @@ export const ChatTools: React.FC = () => {
 
   useEffect(scrollToBottom, [messages]);
 
+  // React to sidebar selecting a chat, or starting a new one
+  useEffect(() => {
+    const load = async () => {
+      if (activeChatId) {
+        try {
+          const { messages: stored } = await loadChat(activeChatId);
+          const mapped: ChatMessage[] = stored.map((m) => ({ role: m.role, text: m.content }));
+          setMessages(mapped.length > 0 ? mapped : [WELCOME_MESSAGE]);
+          setCurrentChatId(activeChatId);
+        } catch (err) {
+          console.error(err);
+          setMessages([WELCOME_MESSAGE]);
+        }
+      } else {
+        setMessages([WELCOME_MESSAGE]);
+        setCurrentChatId(null);
+      }
+      setDismissedLoginPrompt(false);
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadChatTrigger]);
+
+  // Count how many user messages have been sent this session (for the 15-message login prompt)
+  const userMessageCount = messages.filter((m) => m.role === 'user').length;
+
+  useEffect(() => {
+    if (!user && !dismissedLoginPrompt && userMessageCount >= LOGIN_PROMPT_THRESHOLD) {
+      setShowLoginPrompt(true);
+    }
+  }, [userMessageCount, user, dismissedLoginPrompt]);
+
+  const persistMessage = async (role: 'user' | 'model', text: string) => {
+    if (!user) return; // only persist for logged-in users
+    try {
+      let chatId = currentChatId;
+      if (!chatId) {
+        const title = text.slice(0, 50) || 'New Chat';
+        const chat = await createChat(title, provider);
+        chatId = chat.id;
+        setCurrentChatId(chatId);
+        onChatIdChange?.(chatId);
+      }
+      await addMessage(chatId, role, text);
+    } catch (err) {
+      console.error('Failed to save message:', err);
+    }
+  };
+
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!input.trim() || isLoading) return;
 
     const userText = input.trim();
     const newHistory = [...messages, { role: 'user', text: userText } as ChatMessage];
-    
+
     setMessages(newHistory);
     setInput('');
     setIsLoading(true);
+    persistMessage('user', userText);
 
     try {
       let responseText: string;
@@ -48,8 +114,10 @@ export const ChatTools: React.FC = () => {
         );
       }
       setMessages(prev => [...prev, { role: 'model', text: responseText }]);
+      persistMessage('model', responseText);
     } catch (error: any) {
-        setMessages(prev => [...prev, { role: 'model', text: "Error: " + error.message }]);
+        const errText = "Error: " + error.message;
+        setMessages(prev => [...prev, { role: 'model', text: errText }]);
     } finally {
         setIsLoading(false);
     }
@@ -57,6 +125,9 @@ export const ChatTools: React.FC = () => {
 
   const handleClearChat = () => {
     setMessages([{ role: 'model', text: "Chat cleared. Ready for a new conversation!" }]);
+    setCurrentChatId(null);
+    onChatIdChange?.(null);
+    setDismissedLoginPrompt(false);
   };
 
   const CopyButton = ({ text }: { text: string }) => {
@@ -75,6 +146,11 @@ export const ChatTools: React.FC = () => {
 
   return (
     <div className="w-full h-full flex flex-col gap-4 min-h-0">
+        <LoginPromptModal
+          open={showLoginPrompt}
+          onClose={() => { setShowLoginPrompt(false); setDismissedLoginPrompt(true); }}
+        />
+
         {/* Header Area */}
         <div className="shrink-0 flex items-center justify-between bg-cyber-800/50 p-4 rounded-xl border border-cyber-700">
             <div className="flex items-center gap-3">
@@ -199,7 +275,7 @@ export const ChatTools: React.FC = () => {
             </div>
 
             {/* Input Area */}
-            <div className="p-4 bg-cyber-950/80 backdrop-blur border-t border-cyber-700 z-10">
+            <div className="shrink-0 p-4 bg-cyber-950/80 backdrop-blur border-t border-cyber-700 z-10">
                 <form onSubmit={handleSend} className="flex gap-2">
                     <input 
                         type="text" 
