@@ -78,11 +78,11 @@ const AppShell: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-cyber-900 font-sans selection:bg-cyber-500/30">
+    <div className="h-screen flex flex-col bg-cyber-900 font-sans selection:bg-cyber-500/30 overflow-hidden">
       <Header onInstall={handleInstallApp} canInstall={!!deferredPrompt} />
 
       {/* Main Mode Switcher — Chat Studio first, Code Studio last */}
-      <div className="max-w-7xl mx-auto w-full px-4 mt-4">
+      <div className="max-w-7xl mx-auto w-full px-4 mt-4 shrink-0">
         <div className="flex bg-cyber-800/50 p-1 rounded-xl border border-cyber-700 w-full md:w-fit mx-auto md:mx-0 overflow-x-auto no-scrollbar">
           <button
             onClick={() => navigate(MODE_ROUTES.CHAT)}
@@ -115,7 +115,7 @@ const AppShell: React.FC = () => {
         </div>
       </div>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-2 md:px-4 py-4 md:py-6">
+      <main className={`flex-1 max-w-7xl w-full mx-auto px-2 md:px-4 py-4 md:py-6 min-h-0 ${appMode === 'CHAT' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
         <Routes>
           <Route path="/" element={<ChatStudio />} />
           <Route path="/image-studio" element={<ImageStudio />} />
@@ -133,7 +133,7 @@ const AppShell: React.FC = () => {
         </Routes>
       </main>
 
-      <Footer />
+      {appMode !== 'CHAT' && <Footer />}
     </div>
   );
 };
