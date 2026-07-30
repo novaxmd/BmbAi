@@ -74,9 +74,9 @@ export const ChatTools: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col gap-6 h-[calc(100vh-200px)] min-h-[500px]">
+    <div className="w-full h-full flex flex-col gap-4 min-h-0">
         {/* Header Area */}
-        <div className="flex items-center justify-between bg-cyber-800/50 p-4 rounded-xl border border-cyber-700">
+        <div className="shrink-0 flex items-center justify-between bg-cyber-800/50 p-4 rounded-xl border border-cyber-700">
             <div className="flex items-center gap-3">
                 <div className="p-2 bg-gradient-to-br from-cyber-500 to-purple-600 rounded-lg shadow-lg shadow-purple-500/20">
                     <Bot className="w-6 h-6 text-white" />
@@ -99,12 +99,12 @@ export const ChatTools: React.FC = () => {
         </div>
 
         {/* Provider Selector */}
-        <div className="bg-cyber-800/30 border border-cyber-700 rounded-xl p-3">
+        <div className="shrink-0 bg-cyber-800/30 border border-cyber-700 rounded-xl p-3">
             <ProviderSelector capability="supportsChat" value={provider} onChange={setProvider} />
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 bg-cyber-900/50 border border-cyber-700 rounded-2xl relative overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 bg-cyber-900/50 border border-cyber-700 rounded-2xl relative overflow-hidden flex flex-col">
             <div className="absolute inset-0 bg-grid-slate-800/[0.1] bg-[length:30px_30px]"></div>
             
             {/* Messages List */}
