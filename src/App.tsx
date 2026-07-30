@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
+import SidebarMenu from './components/SidebarMenu';
 import ChatStudio from './pages/ChatStudio';
 import ImageStudio from './pages/ImageStudio';
 import AudioStudio from './pages/AudioStudio';
 import CodeStudio from './pages/CodeStudio';
 import { Code, Image as ImageIcon, Mic, MessageSquare } from 'lucide-react';
 import LZString from 'lz-string';
+import { AuthProvider } from './hooks/useAuth';
 
 type StudioMode = 'CHAT' | 'IMAGE' | 'AUDIO' | 'CODE';
 
@@ -36,6 +38,9 @@ const AppShell: React.FC = () => {
   const location = useLocation();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [sharedCode, setSharedCode] = useState<SharedCodeState | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [loadChatTrigger, setLoadChatTrigger] = useState(0);
 
   const appMode: StudioMode = ROUTE_MODES[location.pathname] ?? 'CHAT';
 
@@ -78,8 +83,24 @@ const AppShell: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen h-screen flex flex-col bg-cyber-900 font-sans selection:bg-cyber-500/30 overflow-hidden">
-      <Header onInstall={handleInstallApp} canInstall={!!deferredPrompt} />
+    <div className="flex flex-col bg-cyber-900 font-sans selection:bg-cyber-500/30 overflow-hidden" style={{ height: '100dvh' }}>
+      <Header onInstall={handleInstallApp} canInstall={!!deferredPrompt} onMenuClick={() => setSidebarOpen(true)} />
+
+      <SidebarMenu
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        activeChatId={activeChatId}
+        onSelectChat={(chatId) => {
+          setActiveChatId(chatId);
+          setLoadChatTrigger((n) => n + 1);
+          navigate('/');
+        }}
+        onNewChat={() => {
+          setActiveChatId(null);
+          setLoadChatTrigger((n) => n + 1);
+          navigate('/');
+        }}
+      />
 
       {/* Main Mode Switcher — Chat Studio first, Code Studio last */}
       <div className="max-w-7xl mx-auto w-full px-4 mt-4 shrink-0">
@@ -117,7 +138,7 @@ const AppShell: React.FC = () => {
 
       <main className={`flex-1 max-w-7xl w-full mx-auto px-2 md:px-4 py-4 md:py-6 min-h-0 ${appMode === 'CHAT' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
         <Routes>
-          <Route path="/" element={<ChatStudio />} />
+          <Route path="/" element={<ChatStudio activeChatId={activeChatId} loadChatTrigger={loadChatTrigger} onChatIdChange={setActiveChatId} />} />
           <Route path="/image-studio" element={<ImageStudio />} />
           <Route path="/audio-studio" element={<AudioStudio />} />
           <Route
@@ -140,7 +161,9 @@ const AppShell: React.FC = () => {
 
 const App: React.FC = () => (
   <BrowserRouter>
-    <AppShell />
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   </BrowserRouter>
 );
 
