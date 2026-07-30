@@ -1,0 +1,16 @@
+{
+  "name": "Bmb Ai",
+  "short_name": "Bmb Ai",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "description": "AI Powered Chat, Image, Audio and Code Studio",
+  "icons": [
+    {
+      "src": "/bmb.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

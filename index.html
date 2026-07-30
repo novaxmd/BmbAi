@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- PWA & Meta Tags -->
+    <title>Bmb Ai - Code & Image Studio</title>
+    <meta name="description" content="Decode obfuscated code and generate websites instantly with AI.">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/bmb.png">
+    
+    <!-- Open Graph / WhatsApp Sharing -->
+    <meta property="og:title" content="Bmb Ai - Decode & Build">
+    <meta property="og:description" content="Analyze obfuscated JavaScript and generate websites with Gemini AI.">
+    <meta property="og:image" content="/bmb.png">
+    <meta property="og:url" content="https://bmbai.zone.id">
+    <meta property="og:type" content="website">
+
+    <!-- Added typography plugin -->
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            colors: {
+              cyber: {
+                950: '#020617',
+                900: '#0f172a',
+                800: '#1e293b',
+                700: '#334155',
+                500: '#3b82f6',
+                400: '#60a5fa',
+                accent: '#8b5cf6'
+              }
+            },
+            keyframes: {
+              shimmer: {
+                '100%': { transform: 'translateX(100%)' }
+              }
+            },
+            animation: {
+              shimmer: 'shimmer 1.5s infinite',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #0f172a;
+        color: #e2e8f0;
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1e293b; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #475569; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #64748b; 
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react-router-dom": "https://esm.sh/react-router-dom@^6.26.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "lz-string": "https://esm.sh/lz-string@1.5.0",
+    "react-markdown": "https://esm.sh/react-markdown@9",
+    "remark-gfm": "https://esm.sh/remark-gfm@4"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(err => {
+            console.log('SW registration failed: ', err);
+          });
+        });
+      }
+    </script>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

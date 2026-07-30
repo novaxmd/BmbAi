@@ -1,0 +1,5 @@
+{
+  "name": "Bmb Ai",
+  "description": "An advanced AI-powered tool to chat, generate images, create audio, and analyze/generate code using Gemini models.",
+  "requestFramePermissions": []
+}
