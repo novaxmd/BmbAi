@@ -78,7 +78,7 @@ const AppShell: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-cyber-900 font-sans selection:bg-cyber-500/30 overflow-hidden">
+    <div className="min-h-screen h-screen flex flex-col bg-cyber-900 font-sans selection:bg-cyber-500/30 overflow-hidden">
       <Header onInstall={handleInstallApp} canInstall={!!deferredPrompt} />
 
       {/* Main Mode Switcher — Chat Studio first, Code Studio last */}
