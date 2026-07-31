@@ -21,7 +21,7 @@ export const Footer: React.FC = () => {
 
         <div className="flex flex-wrap items-center justify-center gap-4">
           <a 
-            href="https://wa.me/447546717496" 
+            href="https://wa.me/255767862457" 
             target="_blank" 
             rel="noopener noreferrer"
             className="group relative px-6 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:-translate-y-1 overflow-hidden"
@@ -34,7 +34,7 @@ export const Footer: React.FC = () => {
           </a>
 
           <a 
-            href="https://saqib.zone.id/" 
+            href="https://bmbtech.zone.id/" 
             target="_blank" 
             rel="noopener noreferrer"
             className="group relative px-6 py-2.5 bg-cyber-500/10 hover:bg-cyber-500/20 text-cyber-400 border border-cyber-500/30 rounded-xl transition-all duration-300 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:-translate-y-1 overflow-hidden"
