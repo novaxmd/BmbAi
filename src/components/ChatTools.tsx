@@ -10,7 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 const WELCOME_MESSAGE: ChatMessage = { role: 'model', text: "Hello! I am Bmb Ai Bot. How can I help you today?" };
-const LOGIN_PROMPT_THRESHOLD = 15;
+const LOGIN_PROMPT_DELAY_MS = 20000; // show sign-in prompt 20s after guest's first message
 
 interface ChatToolsProps {
   activeChatId?: string | null;
@@ -60,14 +60,18 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadChatTrigger]);
 
-  // Count how many user messages have been sent this session (for the 15-message login prompt)
-  const userMessageCount = messages.filter((m) => m.role === 'user').length;
+  // Show the login prompt 20 seconds after the guest sends their first message
+  const hasStartedChatting = messages.some((m) => m.role === 'user');
 
   useEffect(() => {
-    if (!user && !dismissedLoginPrompt && userMessageCount >= LOGIN_PROMPT_THRESHOLD) {
+    if (!hasStartedChatting || user || dismissedLoginPrompt) return;
+
+    const timer = setTimeout(() => {
       setShowLoginPrompt(true);
-    }
-  }, [userMessageCount, user, dismissedLoginPrompt]);
+    }, LOGIN_PROMPT_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, [hasStartedChatting, user, dismissedLoginPrompt]);
 
   const persistMessage = async (role: 'user' | 'model', text: string) => {
     if (!user) return; // only persist for logged-in users
@@ -297,3 +301,4 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
     </div>
   );
 };
+ 
