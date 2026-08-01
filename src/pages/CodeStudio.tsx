@@ -3,7 +3,7 @@ import { ResultView } from '../components/ResultView';
 import { PreviewView } from '../components/PreviewView';
 import { ProviderSelector } from '../components/ProviderSelector';
 import { analyzeObfuscatedCode, generateWebsite, generateWebsiteFromImage } from '../services/geminiService';
-import { sendProxiedChat, ChatProvider } from '../services/providerService';
+import { sendProxiedChat, ChatProvider, generateGeminiWebsite, generateWebsiteAuto } from '../services/providerService';
 import { AnalysisResult, AnalysisStatus } from '../types';
 import { Play, Eraser, AlertCircle, Loader2, Copy, RotateCcw, Globe, Download, Clipboard, Zap, Code, Bot, Sparkles, Pencil, Save, FileCode, Shield, Unlock, Minimize, Link, Share2, Check, Image as ImageIcon, Paperclip, X } from 'lucide-react';
 import LZString from 'lz-string';
@@ -32,7 +32,8 @@ const CodeStudio: React.FC<CodeStudioProps> = ({ initialCode = '', initialTab = 
   const [isShared, setIsShared] = useState<boolean>(false);
 
   const [activeTab, setActiveTab] = useState<'ANALYSIS' | 'PREVIEW'>(initialTab);
-  const [provider, setProvider] = useState<ChatProvider>('gemini');
+  const [provider, setProvider] = useState<ChatProvider>('auto');
+  const [autoAttempt, setAutoAttempt] = useState<ChatProvider | null>(null);
 
   const handleAnalyze = async () => {
     if (!code) return;
@@ -76,8 +77,11 @@ const CodeStudio: React.FC<CodeStudioProps> = ({ initialCode = '', initialTab = 
           reader.onerror = (err) => reject(err);
           reader.readAsDataURL(attachedFile);
         });
+      } else if (provider === 'auto') {
+        const result = await generateWebsiteAuto(prompt, () => generateWebsite(prompt), setAutoAttempt);
+        generatedCode = result.code;
       } else if (provider === 'gemini') {
-        generatedCode = await generateWebsite(prompt);
+        generatedCode = await generateGeminiWebsite(prompt, () => generateWebsite(prompt));
       } else {
         const raw = await sendProxiedChat(
           provider,
@@ -97,6 +101,7 @@ const CodeStudio: React.FC<CodeStudioProps> = ({ initialCode = '', initialTab = 
       setActiveTab('ANALYSIS');
     } finally {
       setIsGenerating(false);
+      setAutoAttempt(null);
     }
   };
 
