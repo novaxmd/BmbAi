@@ -1,18 +1,17 @@
 // Vercel Serverless Function: /api/chat
-// Proxies chat/completion requests to Groq, Claude (Anthropic), or OpenAI.
+// Proxies chat/completion requests to Groq or Mistral AI.
 // API keys stay server-side (Vercel Environment Variables) and are never sent to the browser.
 //
 // Required Vercel env vars (Project Settings -> Environment Variables, NOT prefixed with VITE_):
 //   GROQ_API_KEY
-//   ANTHROPIC_API_KEY
-//   OPENAI_API_KEY
+//   MISTRAL_API_KEY
 
 export const config = {
   runtime: 'edge',
 };
 
 interface ChatRequestBody {
-  provider: 'groq' | 'claude' | 'openai';
+  provider: 'groq' | 'mistral';
   model?: string;
   systemInstruction?: string;
   messages: { role: 'user' | 'assistant'; content: string }[];
@@ -20,8 +19,7 @@ interface ChatRequestBody {
 
 const DEFAULT_MODELS: Record<string, string> = {
   groq: 'llama-3.3-70b-versatile',
-  claude: 'claude-sonnet-4-5-20250929',
-  openai: 'gpt-4o',
+  mistral: 'mistral-large-latest',
 };
 
 async function callGroq(body: ChatRequestBody) {
@@ -48,42 +46,18 @@ async function callGroq(body: ChatRequestBody) {
   return data.choices?.[0]?.message?.content || '';
 }
 
-async function callClaude(body: ChatRequestBody) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured on the server.');
+async function callMistral(body: ChatRequestBody) {
+  const apiKey = process.env.MISTRAL_API_KEY;
+  if (!apiKey) throw new Error('MISTRAL_API_KEY is not configured on the server.');
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: body.model || DEFAULT_MODELS.claude,
-      max_tokens: 4096,
-      system: body.systemInstruction,
-      messages: body.messages.map((m) => ({ role: m.role, content: m.content })),
-    }),
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || 'Claude request failed');
-  return data.content?.map((c: any) => c.text).join('') || '';
-}
-
-async function callOpenAI(body: ChatRequestBody) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY is not configured on the server.');
-
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: body.model || DEFAULT_MODELS.openai,
+      model: body.model || DEFAULT_MODELS.mistral,
       messages: [
         ...(body.systemInstruction ? [{ role: 'system', content: body.systemInstruction }] : []),
         ...body.messages,
@@ -92,7 +66,7 @@ async function callOpenAI(body: ChatRequestBody) {
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || 'OpenAI request failed');
+  if (!res.ok) throw new Error(data.error?.message || data.message || 'Mistral request failed');
   return data.choices?.[0]?.message?.content || '';
 }
 
@@ -113,11 +87,8 @@ export default async function handler(request: Request) {
       case 'groq':
         text = await callGroq(body);
         break;
-      case 'claude':
-        text = await callClaude(body);
-        break;
-      case 'openai':
-        text = await callOpenAI(body);
+      case 'mistral':
+        text = await callMistral(body);
         break;
       default:
         return new Response(JSON.stringify({ error: 'Unknown provider' }), { status: 400 });
