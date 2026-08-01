@@ -13,6 +13,7 @@ const PROVIDER_COLORS: Record<ChatProvider, string> = {
   groq: 'from-orange-500 to-red-400',
   claude: 'from-amber-600 to-orange-400',
   openai: 'from-emerald-500 to-teal-400',
+  cloudflare: 'from-orange-400 to-yellow-400',
 };
 
 export const ProviderSelector: React.FC<ProviderSelectorProps> = ({ capability, value, onChange }) => {
