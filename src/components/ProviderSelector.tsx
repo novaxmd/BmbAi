@@ -9,6 +9,7 @@ interface ProviderSelectorProps {
 }
 
 const PROVIDER_COLORS: Record<ChatProvider, string> = {
+  auto: 'from-cyber-500 to-purple-500',
   gemini: 'from-blue-500 to-cyan-400',
   groq: 'from-orange-500 to-red-400',
   claude: 'from-amber-600 to-orange-400',
