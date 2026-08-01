@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Download, Sparkles, Image as ImageIcon, Camera, Link as LinkIcon, Copy, Check, Loader2, Minimize2, Search } from 'lucide-react';
 import { uploadToImageKit, generateAIImage, extractPromptFromImage } from '../services/imageService';
-import { generateProxiedImage, ChatProvider, generateGeminiImage, generateProxiedImageEdit, generateCloudflareImage, generateImageAuto, generateImageEditAuto } from '../services/providerService';
+import { generateGeminiImage, generateCloudflareImage, generateImageAuto, generateGeminiImageEdit, ChatProvider } from '../services/providerService';
 import { ProviderSelector } from './ProviderSelector';
 
 type ToolMode = 'HOST' | 'DOWNLOADER' | 'AI_GEN' | 'EXTRACTOR';
@@ -118,7 +118,7 @@ export const ImageTools: React.FC = () => {
     setHostEditLoading(true);
     setHostEditResult(null);
     try {
-      const imageUrl = await generateProxiedImageEdit(hostFile, hostEditPrompt.trim());
+      const imageUrl = await generateGeminiImageEdit(hostFile, hostEditPrompt.trim());
       setHostEditResult(imageUrl);
     } catch (err: any) {
       alert("Generation failed: " + err.message);
@@ -155,18 +155,16 @@ export const ImageTools: React.FC = () => {
         let imageUrl: string;
 
         if (genReferenceImage) {
-          // Image-to-image: only OpenAI supports edits on our backend, regardless of provider selection
-          const result = await generateImageEditAuto(genReferenceImage, genPrompt, setGenAutoAttempt);
-          imageUrl = result.imageUrl;
+          // Image-to-image editing uses Gemini's multimodal image generation
+          setGenAutoAttempt('gemini');
+          imageUrl = await generateGeminiImageEdit(genReferenceImage, genPrompt);
         } else if (genProvider === 'auto') {
           const result = await generateImageAuto(genPrompt, () => generateAIImage(genPrompt), setGenAutoAttempt);
           imageUrl = result.imageUrl;
-        } else if (genProvider === 'gemini') {
-          imageUrl = await generateGeminiImage(genPrompt, () => generateAIImage(genPrompt));
         } else if (genProvider === 'cloudflare') {
           imageUrl = await generateCloudflareImage(genPrompt);
         } else {
-          imageUrl = await generateProxiedImage(genPrompt);
+          imageUrl = await generateGeminiImage(genPrompt, () => generateAIImage(genPrompt));
         }
 
         setGenImage(imageUrl);
