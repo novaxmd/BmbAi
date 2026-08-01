@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { X, MessageSquare, Trash2, Settings, LogOut, Github, Plus, Loader2 } from 'lucide-react';
+import { X, MessageSquare, Trash2, Settings, LogOut, Github, Plus, Loader2, Bell, BellOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useChatHistory, ChatSummary } from '../hooks/useChatHistory';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 interface SidebarMenuProps {
   open: boolean;
@@ -24,6 +25,7 @@ const GoogleIcon: React.FC<{ className?: string }> = ({ className }) => (
 const SidebarMenu: React.FC<SidebarMenuProps> = ({ open, onClose, onSelectChat, onNewChat, activeChatId }) => {
   const { user, isLoading: authLoading, loginWithGithub, loginWithGoogle, logout } = useAuth();
   const { chats, isLoading: chatsLoading, fetchChats, deleteChat } = useChatHistory();
+  const { permission, isSubscribed, isLoading: pushLoading, isSupported, subscribe, unsubscribe } = usePushNotifications();
   const [showSettings, setShowSettings] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -113,6 +115,31 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({ open, onClose, onSelectChat, 
         <div className="border-t border-cyber-700 p-3 shrink-0">
           {showSettings && (
             <div className="mb-2 rounded-xl border border-cyber-700 bg-cyber-800/50 p-4 space-y-3 animate-in fade-in duration-200">
+              {isSupported && (
+                <button
+                  onClick={isSubscribed ? unsubscribe : subscribe}
+                  disabled={pushLoading || permission === 'denied'}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                    isSubscribed
+                      ? 'bg-cyber-700 text-slate-300 hover:bg-cyber-600'
+                      : 'bg-cyber-500/10 text-cyber-400 hover:bg-cyber-500/20'
+                  }`}
+                >
+                  {pushLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : isSubscribed ? (
+                    <BellOff className="w-3.5 h-3.5" />
+                  ) : (
+                    <Bell className="w-3.5 h-3.5" />
+                  )}
+                  {permission === 'denied'
+                    ? 'Notifications blocked'
+                    : isSubscribed
+                    ? 'Disable Notifications'
+                    : 'Enable Notifications'}
+                </button>
+              )}
+
               {user ? (
                 <>
                   <div className="flex items-center gap-3">
