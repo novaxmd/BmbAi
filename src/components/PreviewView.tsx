@@ -68,7 +68,7 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ code, isFullscreen, on
           <html>
             <head>
               <style>
-                body { background: #0f172a; color: #fff; font-family: 'Courier New', monospace; padding: 20px; }
+                body { background: #08090d; color: #fff; font-family: 'Courier New', monospace; padding: 20px; }
               </style>
               ${consoleScript}
             </head>
