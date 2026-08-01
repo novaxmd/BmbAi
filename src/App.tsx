@@ -10,6 +10,8 @@ import CodeStudio from './pages/CodeStudio';
 import { Code, Image as ImageIcon, Mic, MessageSquare } from 'lucide-react';
 import LZString from 'lz-string';
 import { AuthProvider } from './hooks/useAuth';
+import NotificationPromptModal from './components/NotificationPromptModal';
+import { usePushNotifications } from './hooks/usePushNotifications';
 
 type StudioMode = 'CHAT' | 'IMAGE' | 'AUDIO' | 'CODE';
 
@@ -41,8 +43,36 @@ const AppShell: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [loadChatTrigger, setLoadChatTrigger] = useState(0);
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const { permission, isSupported, subscribe } = usePushNotifications();
 
   const appMode: StudioMode = ROUTE_MODES[location.pathname] ?? 'CHAT';
+
+  // Show a custom notification-permission prompt once per device, a few seconds
+  // after the app loads — but only if the browser supports it, permission hasn't
+  // already been decided, and the person hasn't dismissed it before.
+  useEffect(() => {
+    if (!isSupported) return;
+    if (permission !== 'default') return;
+    if (localStorage.getItem('bmb_ai_notif_prompt_dismissed') === '1') return;
+
+    const timer = setTimeout(() => {
+      setShowNotificationPrompt(true);
+    }, 8000);
+
+    return () => clearTimeout(timer);
+  }, [isSupported, permission]);
+
+  const handleAllowNotifications = async () => {
+    setShowNotificationPrompt(false);
+    localStorage.setItem('bmb_ai_notif_prompt_dismissed', '1');
+    await subscribe();
+  };
+
+  const handleDismissNotifications = () => {
+    setShowNotificationPrompt(false);
+    localStorage.setItem('bmb_ai_notif_prompt_dismissed', '1');
+  };
 
   // Load shared code from URL on startup (?share=... coming from Code Studio's Share button)
   useEffect(() => {
@@ -155,6 +185,12 @@ const AppShell: React.FC = () => {
       </main>
 
       {appMode !== 'CHAT' && <Footer />}
+
+      <NotificationPromptModal
+        open={showNotificationPrompt}
+        onAllow={handleAllowNotifications}
+        onDismiss={handleDismissNotifications}
+      />
     </div>
   );
 };
