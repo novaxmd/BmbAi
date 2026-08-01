@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Download, Sparkles, Image as ImageIcon, Camera, Link as LinkIcon, Copy, Check, Loader2, Minimize2, Search } from 'lucide-react';
 import { uploadToImageKit, generateAIImage, extractPromptFromImage } from '../services/imageService';
-import { generateProxiedImage, ChatProvider } from '../services/providerService';
+import { generateProxiedImage, ChatProvider, generateGeminiImage, generateProxiedImageEdit } from '../services/providerService';
 import { ProviderSelector } from './ProviderSelector';
 
 type ToolMode = 'HOST' | 'DOWNLOADER' | 'AI_GEN' | 'EXTRACTOR';
@@ -14,6 +14,9 @@ export const ImageTools: React.FC = () => {
   const [hostUrl, setHostUrl] = useState<string>('');
   const [hostLoading, setHostLoading] = useState(false);
   const [compressionStats, setCompressionStats] = useState<{original: string, compressed: string} | null>(null);
+  const [hostEditPrompt, setHostEditPrompt] = useState('');
+  const [hostEditLoading, setHostEditLoading] = useState(false);
+  const [hostEditResult, setHostEditResult] = useState<string | null>(null);
 
   // Downloader States
   const [downloadUrl, setDownloadUrl] = useState('');
@@ -87,6 +90,8 @@ export const ImageTools: React.FC = () => {
     setHostLoading(true);
     setHostUrl('');
     setCompressionStats(null);
+    setHostEditPrompt('');
+    setHostEditResult(null);
 
     try {
         const compressedBlob = await compressImage(file);
@@ -101,6 +106,20 @@ export const ImageTools: React.FC = () => {
         alert("Error: " + err);
     } finally {
         setHostLoading(false);
+    }
+  };
+
+  const handleHostGenerate = async () => {
+    if (!hostFile || !hostEditPrompt.trim()) return;
+    setHostEditLoading(true);
+    setHostEditResult(null);
+    try {
+      const imageUrl = await generateProxiedImageEdit(hostFile, hostEditPrompt.trim());
+      setHostEditResult(imageUrl);
+    } catch (err: any) {
+      alert("Generation failed: " + err.message);
+    } finally {
+      setHostEditLoading(false);
     }
   };
 
@@ -130,7 +149,7 @@ export const ImageTools: React.FC = () => {
     setGenImage(null);
     try {
         const imageUrl = genProvider === 'gemini'
-          ? await generateAIImage(genPrompt)
+          ? await generateGeminiImage(genPrompt, () => generateAIImage(genPrompt))
           : await generateProxiedImage(genPrompt);
         setGenImage(imageUrl);
     } catch (e: any) {
@@ -223,6 +242,49 @@ export const ImageTools: React.FC = () => {
                             <button onClick={() => navigator.clipboard.writeText(hostUrl)} className="text-slate-400 hover:text-white">
                                 <Copy className="w-5 h-5" />
                             </button>
+                        </div>
+                    )}
+
+                    {hostFile && (
+                        <div className="w-full space-y-3 pt-2 border-t border-cyber-800">
+                            <div className="text-left">
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-purple-400" />
+                                    Generate from this image
+                                </h3>
+                                <p className="text-xs text-slate-500">Describe how you want this image changed, then generate a new version.</p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                    type="text"
+                                    value={hostEditPrompt}
+                                    onChange={(e) => setHostEditPrompt(e.target.value)}
+                                    placeholder="Ex: Make the background a sunset beach..."
+                                    className="flex-1 bg-cyber-900 border border-cyber-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyber-500 placeholder:text-slate-600"
+                                />
+                                <button
+                                    onClick={handleHostGenerate}
+                                    disabled={hostEditLoading || !hostEditPrompt.trim()}
+                                    className="px-5 py-3 bg-gradient-to-r from-purple-600 to-cyber-500 hover:from-purple-500 hover:to-cyber-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-900/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                                >
+                                    {hostEditLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                    Generate
+                                </button>
+                            </div>
+
+                            {hostEditResult && (
+                                <div className="space-y-2">
+                                    <img src={hostEditResult} alt="Generated result" className="w-full rounded-xl border border-cyber-700" />
+                                    <a
+                                        href={hostEditResult}
+                                        download="bmb-ai-generated.png"
+                                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-cyber-800 hover:bg-cyber-700 text-white text-sm font-bold transition-colors"
+                                    >
+                                        <Download className="w-4 h-4" />
+                                        Download
+                                    </a>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
