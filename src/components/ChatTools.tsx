@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Trash2, Sparkles, Loader2, MessageSquare, Copy, Check } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Loader2, MessageSquare, Copy, Check } from 'lucide-react';
 import { sendChatMessage, ChatMessage } from '../services/chatService';
 import { sendProxiedChat, ChatProvider, sendGeminiChat, sendChatAuto } from '../services/providerService';
 import { ProviderSelector } from './ProviderSelector';
@@ -9,7 +9,7 @@ import { useChatHistory } from '../hooks/useChatHistory';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-const WELCOME_MESSAGE: ChatMessage = { role: 'model', text: "Hello! I am Bmb Ai Bot. How can I help you today?" };
+const WELCOME_MESSAGE: ChatMessage = { role: 'model', text: "Hello! How can I help you today?" };
 const LOGIN_PROMPT_DELAY_MS = 20000; // show sign-in prompt 20s after guest's first message
 
 interface ChatToolsProps {
@@ -22,7 +22,8 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
   const { user } = useAuth();
   const { createChat, loadChat, addMessage } = useChatHistory();
 
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<ChatMessage[]>(activeChatId ? [] : [WELCOME_MESSAGE]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(!!activeChatId);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [provider, setProvider] = useState<ChatProvider>('auto');
@@ -42,18 +43,23 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
   useEffect(() => {
     const load = async () => {
       if (activeChatId) {
+        setIsLoadingHistory(true);
         try {
           const { messages: stored } = await loadChat(activeChatId);
           const mapped: ChatMessage[] = stored.map((m) => ({ role: m.role, text: m.content }));
           setMessages(mapped.length > 0 ? mapped : [WELCOME_MESSAGE]);
           setCurrentChatId(activeChatId);
         } catch (err) {
-          console.error(err);
-          setMessages([WELCOME_MESSAGE]);
+          console.error('Failed to load chat history:', err);
+          setMessages([{ role: 'model', text: "Couldn't load this chat's history. It may have been deleted, or there was a connection issue." }]);
+          setCurrentChatId(activeChatId);
+        } finally {
+          setIsLoadingHistory(false);
         }
       } else {
         setMessages([WELCOME_MESSAGE]);
         setCurrentChatId(null);
+        setIsLoadingHistory(false);
       }
       setDismissedLoginPrompt(false);
     };
@@ -141,13 +147,6 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
     }
   };
 
-  const handleClearChat = () => {
-    setMessages([{ role: 'model', text: "Chat cleared. Ready for a new conversation!" }]);
-    setCurrentChatId(null);
-    onChatIdChange?.(null);
-    setDismissedLoginPrompt(false);
-  };
-
   const CopyButton = ({ text }: { text: string }) => {
     const [copied, setCopied] = useState(false);
     const handleCopy = () => {
@@ -169,29 +168,6 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
           onClose={() => { setShowLoginPrompt(false); setDismissedLoginPrompt(true); }}
         />
 
-        {/* Header Area */}
-        <div className="shrink-0 flex items-center justify-between bg-cyber-800/50 p-4 rounded-xl border border-cyber-700">
-            <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-cyber-500 to-purple-600 rounded-lg shadow-lg shadow-purple-500/20">
-                    <Bot className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                    <h2 className="text-xl font-bold text-white">Bmb Ai Bot</h2>
-                    <p className="text-xs text-emerald-400 font-mono flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        ONLINE
-                    </p>
-                </div>
-            </div>
-            <button 
-                onClick={handleClearChat}
-                className="p-2 hover:bg-cyber-700 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
-                title="Clear Chat"
-            >
-                <Trash2 className="w-5 h-5" />
-            </button>
-        </div>
-
         {/* Provider Selector */}
         <div className="shrink-0 bg-cyber-800/30 border border-cyber-700 rounded-xl p-3">
             <ProviderSelector capability="supportsChat" value={provider} onChange={setProvider} />
@@ -203,7 +179,12 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
             
             {/* Messages List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar z-10">
-                {messages.map((msg, idx) => (
+                {isLoadingHistory && (
+                    <div className="flex items-center justify-center py-10">
+                        <Loader2 className="w-6 h-6 text-cyber-400 animate-spin" />
+                    </div>
+                )}
+                {!isLoadingHistory && messages.map((msg, idx) => (
                     <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start group'}`}>
                         {msg.role === 'model' && (
                             <div className="w-8 h-8 rounded-full bg-cyber-800 flex items-center justify-center border border-cyber-700 shrink-0 mt-1">
