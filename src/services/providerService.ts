@@ -1,9 +1,10 @@
-// Unified multi-provider chat/text service.
-// - Gemini: called directly from the browser (existing behavior, uses VITE/process.env API key).
-// - Groq / Claude / OpenAI: routed through /api/chat (Vercel Serverless Function) so the
+// Unified multi-provider chat/text/image service.
+// - Gemini: called directly from the browser (fallback), or via /api/gemini-* (backend-first).
+// - Groq / Mistral: routed through /api/chat (Vercel Serverless Function) so the
 //   real API keys never reach the browser.
+// - Cloudflare Workers AI: routed through /api/cloudflare-image (free image generation).
 
-export type ChatProvider = 'auto' | 'gemini' | 'groq' | 'claude' | 'openai' | 'cloudflare';
+export type ChatProvider = 'auto' | 'gemini' | 'groq' | 'mistral' | 'cloudflare';
 
 export interface ProviderOption {
   id: ChatProvider;
@@ -18,8 +19,7 @@ export const PROVIDERS: ProviderOption[] = [
   { id: 'auto', label: 'Auto', supportsChat: true, supportsCode: true, supportsImage: true, supportsAudio: true },
   { id: 'gemini', label: 'Gemini', supportsChat: true, supportsCode: true, supportsImage: true, supportsAudio: true },
   { id: 'groq', label: 'Groq', supportsChat: true, supportsCode: true, supportsImage: false, supportsAudio: false },
-  { id: 'claude', label: 'Claude', supportsChat: true, supportsCode: true, supportsImage: false, supportsAudio: false },
-  { id: 'openai', label: 'OpenAI', supportsChat: true, supportsCode: true, supportsImage: true, supportsAudio: true },
+  { id: 'mistral', label: 'Mistral', supportsChat: true, supportsCode: true, supportsImage: false, supportsAudio: false },
   { id: 'cloudflare', label: 'Cloudflare', supportsChat: false, supportsCode: false, supportsImage: true, supportsAudio: false },
 ];
 
@@ -29,7 +29,7 @@ interface SimpleMessage {
 }
 
 export async function sendProxiedChat(
-  provider: Exclude<ChatProvider, 'gemini'>,
+  provider: Exclude<ChatProvider, 'gemini' | 'auto' | 'cloudflare'>,
   messages: SimpleMessage[],
   systemInstruction?: string
 ): Promise<string> {
@@ -44,18 +44,6 @@ export async function sendProxiedChat(
   return data.text;
 }
 
-export async function generateProxiedImage(prompt: string): Promise<string> {
-  const res = await fetch('/api/image', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Image generation failed');
-  return data.imageUrl;
-}
-
 export async function generateCloudflareImage(prompt: string): Promise<string> {
   const res = await fetch('/api/cloudflare-image', {
     method: 'POST',
@@ -66,33 +54,6 @@ export async function generateCloudflareImage(prompt: string): Promise<string> {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Cloudflare image generation failed');
   return data.imageUrl;
-}
-
-export async function generateProxiedImageEdit(imageFile: File | Blob, prompt: string): Promise<string> {
-  const formData = new FormData();
-  formData.append('image', imageFile, 'image.png');
-  formData.append('prompt', prompt);
-
-  const res = await fetch('/api/image-edit', {
-    method: 'POST',
-    body: formData,
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Image edit failed');
-  return data.imageUrl;
-}
-
-export async function generateProxiedSpeech(text: string, voice?: string): Promise<string> {
-  const res = await fetch('/api/audio', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, voice }),
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Speech generation failed');
-  return data.audioUrl;
 }
 
 // --- Gemini: backend-first, frontend fallback ---
@@ -162,9 +123,31 @@ export async function generateGeminiImage(
   }
 }
 
+export async function generateGeminiImageEdit(imageFile: File | Blob, prompt: string): Promise<string> {
+  const imageBase64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(',')[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(imageFile);
+  });
+
+  const res = await fetch('/api/gemini-image-edit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, imageBase64, mimeType: imageFile.type || 'image/png' }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Image edit failed');
+  return data.imageUrl;
+}
+
 // --- AUTO mode: tries providers in order until one succeeds ---
-// Chat/Code order: Groq -> Gemini -> Claude -> OpenAI (fastest/free-est first)
-// Image order: Cloudflare -> Gemini -> OpenAI (free first, then paid)
+// Chat/Code order: Groq -> Gemini -> Mistral (fastest/free-est first)
+// Image order: Cloudflare -> Gemini (both free)
 
 export interface AutoAttempt {
   provider: ChatProvider;
@@ -179,8 +162,8 @@ export class AutoAllFailedError extends Error {
   }
 }
 
-const CHAT_AUTO_ORDER: Exclude<ChatProvider, 'auto' | 'cloudflare'>[] = ['groq', 'gemini', 'claude', 'openai'];
-const IMAGE_AUTO_ORDER: Exclude<ChatProvider, 'auto' | 'groq' | 'claude'>[] = ['cloudflare', 'gemini', 'openai'];
+const CHAT_AUTO_ORDER: Exclude<ChatProvider, 'auto' | 'cloudflare'>[] = ['groq', 'gemini', 'mistral'];
+const IMAGE_AUTO_ORDER: Exclude<ChatProvider, 'auto' | 'groq' | 'mistral'>[] = ['cloudflare', 'gemini'];
 
 export async function sendChatAuto(
   history: { role: 'user' | 'model'; text: string }[],
@@ -253,11 +236,7 @@ export async function generateImageAuto(
         const imageUrl = await generateCloudflareImage(prompt);
         return { imageUrl, usedProvider: provider };
       }
-      if (provider === 'gemini') {
-        const imageUrl = await generateGeminiImage(prompt, geminiFrontendFallback);
-        return { imageUrl, usedProvider: provider };
-      }
-      const imageUrl = await generateProxiedImage(prompt);
+      const imageUrl = await generateGeminiImage(prompt, geminiFrontendFallback);
       return { imageUrl, usedProvider: provider };
     } catch (err: any) {
       attempts.push({ provider, error: err.message || 'Unknown error' });
@@ -265,15 +244,4 @@ export async function generateImageAuto(
   }
 
   throw new AutoAllFailedError(attempts);
-}
-
-export async function generateImageEditAuto(
-  imageFile: File | Blob,
-  prompt: string,
-  onAttempt?: (provider: ChatProvider) => void
-): Promise<{ imageUrl: string; usedProvider: ChatProvider }> {
-  // Only OpenAI currently supports image-to-image editing through our backend.
-  onAttempt?.('openai');
-  const imageUrl = await generateProxiedImageEdit(imageFile, prompt);
-  return { imageUrl, usedProvider: 'openai' };
 }
