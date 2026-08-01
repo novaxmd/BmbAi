@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Download, Sparkles, Image as ImageIcon, Camera, Link as LinkIcon, Copy, Check, Loader2, Minimize2, Search } from 'lucide-react';
 import { uploadToImageKit, generateAIImage, extractPromptFromImage } from '../services/imageService';
-import { generateProxiedImage, ChatProvider, generateGeminiImage, generateProxiedImageEdit } from '../services/providerService';
+import { generateProxiedImage, ChatProvider, generateGeminiImage, generateProxiedImageEdit, generateCloudflareImage } from '../services/providerService';
 import { ProviderSelector } from './ProviderSelector';
 
 type ToolMode = 'HOST' | 'DOWNLOADER' | 'AI_GEN' | 'EXTRACTOR';
@@ -148,9 +148,14 @@ export const ImageTools: React.FC = () => {
     setGenLoading(true);
     setGenImage(null);
     try {
-        const imageUrl = genProvider === 'gemini'
-          ? await generateGeminiImage(genPrompt, () => generateAIImage(genPrompt))
-          : await generateProxiedImage(genPrompt);
+        let imageUrl: string;
+        if (genProvider === 'gemini') {
+          imageUrl = await generateGeminiImage(genPrompt, () => generateAIImage(genPrompt));
+        } else if (genProvider === 'cloudflare') {
+          imageUrl = await generateCloudflareImage(genPrompt);
+        } else {
+          imageUrl = await generateProxiedImage(genPrompt);
+        }
         setGenImage(imageUrl);
     } catch (e: any) {
         alert("Generation failed: " + e.message);
