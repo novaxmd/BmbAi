@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Download, Sparkles, Image as ImageIcon, Camera, Link as LinkIcon, Copy, Check, Loader2, Minimize2, Search } from 'lucide-react';
 import { uploadToImageKit, generateAIImage, extractPromptFromImage } from '../services/imageService';
-import { generateProxiedImage, ChatProvider, generateGeminiImage, generateProxiedImageEdit, generateCloudflareImage } from '../services/providerService';
+import { generateProxiedImage, ChatProvider, generateGeminiImage, generateProxiedImageEdit, generateCloudflareImage, generateImageAuto, generateImageEditAuto } from '../services/providerService';
 import { ProviderSelector } from './ProviderSelector';
 
 type ToolMode = 'HOST' | 'DOWNLOADER' | 'AI_GEN' | 'EXTRACTOR';
@@ -26,7 +26,11 @@ export const ImageTools: React.FC = () => {
   const [genPrompt, setGenPrompt] = useState('');
   const [genImage, setGenImage] = useState<string | null>(null);
   const [genLoading, setGenLoading] = useState(false);
-  const [genProvider, setGenProvider] = useState<ChatProvider>('gemini');
+  const [genProvider, setGenProvider] = useState<ChatProvider>('auto');
+  const [genAutoAttempt, setGenAutoAttempt] = useState<ChatProvider | null>(null);
+  const [genReferenceImage, setGenReferenceImage] = useState<File | null>(null);
+  const genResultRef = useRef<HTMLDivElement>(null);
+  const genImageInputRef = useRef<HTMLInputElement>(null);
 
   // Extractor States
   const [extractFile, setExtractFile] = useState<File | null>(null);
@@ -149,19 +153,36 @@ export const ImageTools: React.FC = () => {
     setGenImage(null);
     try {
         let imageUrl: string;
-        if (genProvider === 'gemini') {
+
+        if (genReferenceImage) {
+          // Image-to-image: only OpenAI supports edits on our backend, regardless of provider selection
+          const result = await generateImageEditAuto(genReferenceImage, genPrompt, setGenAutoAttempt);
+          imageUrl = result.imageUrl;
+        } else if (genProvider === 'auto') {
+          const result = await generateImageAuto(genPrompt, () => generateAIImage(genPrompt), setGenAutoAttempt);
+          imageUrl = result.imageUrl;
+        } else if (genProvider === 'gemini') {
           imageUrl = await generateGeminiImage(genPrompt, () => generateAIImage(genPrompt));
         } else if (genProvider === 'cloudflare') {
           imageUrl = await generateCloudflareImage(genPrompt);
         } else {
           imageUrl = await generateProxiedImage(genPrompt);
         }
+
         setGenImage(imageUrl);
+        // Scroll down to the generated image once it's ready
+        setTimeout(() => genResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
     } catch (e: any) {
         alert("Generation failed: " + e.message);
     } finally {
         setGenLoading(false);
+        setGenAutoAttempt(null);
     }
+  };
+
+  const handleGenReferenceSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setGenReferenceImage(file);
   };
 
   const handleExtract = async (file: File) => {
@@ -337,14 +358,45 @@ export const ImageTools: React.FC = () => {
                         <h2 className="text-2xl font-bold text-white">Bmb Ai Image Gen</h2>
                         <p className="text-slate-400">Powered by Nano Banana (Flash Image) Model</p>
                     </div>
-                    <div className="flex justify-center">
-                        <ProviderSelector capability="supportsImage" value={genProvider} onChange={setGenProvider} />
-                    </div>
+
+                    {!genReferenceImage && (
+                      <div className="flex justify-center">
+                          <ProviderSelector capability="supportsImage" value={genProvider} onChange={setGenProvider} />
+                      </div>
+                    )}
+
                     <div className="flex flex-col gap-3">
+                        {/* Reference image upload */}
+                        <input type="file" ref={genImageInputRef} className="hidden" accept="image/*" onChange={handleGenReferenceSelect} />
+                        {genReferenceImage ? (
+                          <div className="flex items-center gap-3 bg-cyber-950 border border-cyber-700 rounded-xl p-3">
+                            <img src={URL.createObjectURL(genReferenceImage)} alt="Reference" className="w-14 h-14 object-cover rounded-lg border border-cyber-700" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-slate-300 truncate">{genReferenceImage.name}</p>
+                              <p className="text-[10px] text-slate-500">Using this image as reference</p>
+                            </div>
+                            <button
+                              onClick={() => setGenReferenceImage(null)}
+                              className="p-2 text-slate-400 hover:text-red-400 transition-colors"
+                              title="Remove reference image"
+                            >
+                              <Check className="w-4 h-4 rotate-45" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => genImageInputRef.current?.click()}
+                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-cyber-700 text-slate-400 hover:border-cyber-500 hover:text-white transition-colors text-sm"
+                          >
+                            <Upload className="w-4 h-4" />
+                            Upload a reference image (optional)
+                          </button>
+                        )}
+
                         <textarea 
                             value={genPrompt} 
                             onChange={(e) => setGenPrompt(e.target.value)}
-                            placeholder="Describe the image you want to generate..."
+                            placeholder={genReferenceImage ? "Describe how to transform this image..." : "Describe the image you want to generate..."}
                             className="w-full h-32 bg-cyber-950 border border-cyber-700 rounded-xl p-4 text-white focus:border-cyber-500 focus:outline-none resize-none placeholder:text-slate-600"
                         />
                         <button 
@@ -353,11 +405,11 @@ export const ImageTools: React.FC = () => {
                             className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-purple-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                         >
                             {genLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                            Generate Image
+                            {genLoading && genAutoAttempt ? `Trying ${genAutoAttempt}...` : 'Generate Image'}
                         </button>
                     </div>
                     {genImage && (
-                        <div className="mt-4 rounded-xl overflow-hidden border border-cyber-700 shadow-2xl relative group">
+                        <div ref={genResultRef} className="mt-4 rounded-xl overflow-hidden border border-cyber-700 shadow-2xl relative group scroll-mt-4">
                             <img src={genImage} alt="Generated" className="w-full h-auto" />
                             <div className="absolute top-2 right-2 flex gap-2">
                                 <button onClick={() => downloadImage(genImage!, 'ai_generated.png')} className="p-2 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur">
@@ -365,6 +417,15 @@ export const ImageTools: React.FC = () => {
                                 </button>
                             </div>
                         </div>
+                    )}
+                    {genImage && (
+                        <button
+                            onClick={() => downloadImage(genImage!, 'ai_generated.png')}
+                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-cyber-800 hover:bg-cyber-700 text-white text-sm font-bold transition-colors"
+                        >
+                            <Download className="w-4 h-4" />
+                            Download Image
+                        </button>
                     )}
                 </div>
             )}
