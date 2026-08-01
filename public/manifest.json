@@ -3,8 +3,8 @@
   "short_name": "Bmb Ai",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#08090d",
+  "theme_color": "#08090d",
   "description": "AI Powered Chat, Image, Audio and Code Studio",
   "icons": [
     {
