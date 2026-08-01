@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Mic, Volume2, Play, FileAudio, Loader2, Sparkles, Download, StopCircle } from 'lucide-react';
 import { generateSpeech, analyzeAudio } from '../services/audioService';
-import { generateProxiedSpeech, ChatProvider } from '../services/providerService';
+import { ChatProvider } from '../services/providerService';
 import { ProviderSelector } from './ProviderSelector';
 
 type AudioMode = 'TTS' | 'ANALYSIS';
@@ -29,9 +29,7 @@ export const AudioTools: React.FC = () => {
     setIsGenerating(true);
     setAudioUrl(null);
     try {
-      const url = ttsProvider === 'gemini'
-        ? await generateSpeech(ttsText, selectedVoice)
-        : await generateProxiedSpeech(ttsText);
+      const url = await generateSpeech(ttsText, selectedVoice);
       setAudioUrl(url);
     } catch (e: any) {
       alert("TTS Error: " + e.message);
