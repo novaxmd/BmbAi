@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Trash2, Sparkles, Loader2, MessageSquare, Copy, Check } from 'lucide-react';
 import { sendChatMessage, ChatMessage } from '../services/chatService';
-import { sendProxiedChat, ChatProvider } from '../services/providerService';
+import { sendProxiedChat, ChatProvider, sendGeminiChat, sendChatAuto } from '../services/providerService';
 import { ProviderSelector } from './ProviderSelector';
 import LoginPromptModal from './LoginPromptModal';
 import { useAuth } from '../hooks/useAuth';
@@ -25,7 +25,8 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [provider, setProvider] = useState<ChatProvider>('gemini');
+  const [provider, setProvider] = useState<ChatProvider>('auto');
+  const [autoAttempt, setAutoAttempt] = useState<ChatProvider | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [dismissedLoginPrompt, setDismissedLoginPrompt] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(activeChatId);
@@ -104,18 +105,30 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
 
     try {
       let responseText: string;
-      if (provider === 'gemini') {
-        responseText = await sendChatMessage(messages, userText);
+      const systemInstruction = "You are Bmb Ai, a highly advanced, intelligent, and helpful AI assistant created by Bmb Tech. You are witty, professional, and knowledgeable about coding, technology, and creativity. Always answer as 'Bmb Ai'.";
+
+      if (provider === 'auto') {
+        const result = await sendChatAuto(
+          messages,
+          userText,
+          systemInstruction,
+          () => sendChatMessage(messages, userText),
+          setAutoAttempt
+        );
+        responseText = result.text;
+      } else if (provider === 'gemini') {
+        responseText = await sendGeminiChat(
+          messages,
+          userText,
+          systemInstruction,
+          () => sendChatMessage(messages, userText)
+        );
       } else {
         const history = newHistory.map((m) => ({
           role: m.role === 'model' ? ('assistant' as const) : ('user' as const),
           content: m.text,
         }));
-        responseText = await sendProxiedChat(
-          provider,
-          history,
-          "You are Bmb Ai, a highly advanced, intelligent, and helpful AI assistant created by Bmb Tech. You are witty, professional, and knowledgeable about coding, technology, and creativity. Always answer as 'Bmb Ai'."
-        );
+        responseText = await sendProxiedChat(provider, history, systemInstruction);
       }
       setMessages(prev => [...prev, { role: 'model', text: responseText }]);
       persistMessage('model', responseText);
@@ -124,6 +137,7 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
         setMessages(prev => [...prev, { role: 'model', text: errText }]);
     } finally {
         setIsLoading(false);
+        setAutoAttempt(null);
     }
   };
 
@@ -271,7 +285,9 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
                         </div>
                         <div className="bg-cyber-800/50 px-4 py-3 rounded-2xl rounded-bl-none border border-cyber-700/50 flex items-center gap-2">
                              <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
-                             <span className="text-xs text-slate-500">Bmb Ai is typing...</span>
+                             <span className="text-xs text-slate-500">
+                               {autoAttempt ? `Trying ${autoAttempt}...` : 'Bmb Ai is typing...'}
+                             </span>
                         </div>
                     </div>
                 )}
