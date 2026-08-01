@@ -3,7 +3,7 @@
 // - Groq / Claude / OpenAI: routed through /api/chat (Vercel Serverless Function) so the
 //   real API keys never reach the browser.
 
-export type ChatProvider = 'gemini' | 'groq' | 'claude' | 'openai';
+export type ChatProvider = 'gemini' | 'groq' | 'claude' | 'openai' | 'cloudflare';
 
 export interface ProviderOption {
   id: ChatProvider;
@@ -19,6 +19,7 @@ export const PROVIDERS: ProviderOption[] = [
   { id: 'groq', label: 'Groq', supportsChat: true, supportsCode: true, supportsImage: false, supportsAudio: false },
   { id: 'claude', label: 'Claude', supportsChat: true, supportsCode: true, supportsImage: false, supportsAudio: false },
   { id: 'openai', label: 'OpenAI', supportsChat: true, supportsCode: true, supportsImage: true, supportsAudio: true },
+  { id: 'cloudflare', label: 'Cloudflare', supportsChat: false, supportsCode: false, supportsImage: true, supportsAudio: false },
 ];
 
 interface SimpleMessage {
@@ -51,6 +52,18 @@ export async function generateProxiedImage(prompt: string): Promise<string> {
 
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Image generation failed');
+  return data.imageUrl;
+}
+
+export async function generateCloudflareImage(prompt: string): Promise<string> {
+  const res = await fetch('/api/cloudflare-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Cloudflare image generation failed');
   return data.imageUrl;
 }
 
