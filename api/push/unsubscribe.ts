@@ -17,4 +17,4 @@ export default async function handler(request: Request) {
   } catch (err: any) {
     return json({ error: err.message || 'Internal error' }, 500);
   }
-                                     }
+}
