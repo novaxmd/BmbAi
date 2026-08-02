@@ -187,8 +187,8 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
                 {!isLoadingHistory && messages.map((msg, idx) => (
                     <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start group'}`}>
                         {msg.role === 'model' && (
-                            <div className="w-8 h-8 rounded-full bg-cyber-800 flex items-center justify-center border border-cyber-700 shrink-0 mt-1">
-                                <Bot className="w-4 h-4 text-cyber-400" />
+                            <div className="w-8 h-8 rounded-full bg-cyber-800 flex items-center justify-center border border-cyber-700 shrink-0 mt-1 overflow-hidden">
+                                <img src="/bmb.png" alt="Bmb Ai" className="w-full h-full object-cover" />
                             </div>
                         )}
                         <div 
@@ -253,16 +253,24 @@ export const ChatTools: React.FC<ChatToolsProps> = ({ activeChatId = null, loadC
                             )}
                         </div>
                         {msg.role === 'user' && (
-                            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center border border-purple-500/30 shrink-0 mt-1">
-                                <User className="w-4 h-4 text-purple-400" />
+                            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center border border-purple-500/30 shrink-0 mt-1 overflow-hidden">
+                                {user?.avatar_url ? (
+                                    <img src={user.avatar_url} alt={user.name || user.email || 'You'} className="w-full h-full object-cover" />
+                                ) : user?.email || user?.name ? (
+                                    <span className="text-xs font-bold text-purple-300">
+                                        {(user.email || user.name || '?').charAt(0).toUpperCase()}
+                                    </span>
+                                ) : (
+                                    <User className="w-4 h-4 text-purple-400" />
+                                )}
                             </div>
                         )}
                     </div>
                 ))}
                 {isLoading && (
                     <div className="flex gap-3 justify-start animate-pulse">
-                        <div className="w-8 h-8 rounded-full bg-cyber-800 flex items-center justify-center border border-cyber-700">
-                             <Bot className="w-4 h-4 text-cyber-400" />
+                        <div className="w-8 h-8 rounded-full bg-cyber-800 flex items-center justify-center border border-cyber-700 overflow-hidden">
+                             <img src="/bmb.png" alt="Bmb Ai" className="w-full h-full object-cover" />
                         </div>
                         <div className="bg-cyber-800/50 px-4 py-3 rounded-2xl rounded-bl-none border border-cyber-700/50 flex items-center gap-2">
                              <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
