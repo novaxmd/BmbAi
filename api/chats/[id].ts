@@ -37,8 +37,16 @@ export default async function handler(request: Request) {
   }
 
   if (request.method === 'DELETE') {
-    await sql`DELETE FROM chats WHERE id = ${id}`;
-    return json({ success: true });
+    try {
+      const result = await sql`DELETE FROM chats WHERE id = ${id} RETURNING id`;
+      if (!result || result.length === 0) {
+        return json({ error: 'Delete affected 0 rows — chat may already be gone' }, 404);
+      }
+      return json({ success: true, deletedId: result[0].id });
+    } catch (err: any) {
+      console.error('Failed to delete chat:', err);
+      return json({ error: err.message || 'Failed to delete chat' }, 500);
+    }
   }
 
   return json({ error: 'Method not allowed' }, 405);
