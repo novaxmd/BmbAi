@@ -39,8 +39,9 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({ open, onClose, onSelectChat, 
     try {
       await deleteChat(chatId);
       if (activeChatId === chatId) onNewChat();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(`Couldn't delete chat: ${err.message || 'Unknown error'}`);
     } finally {
       setDeletingId(null);
     }
@@ -92,22 +93,28 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({ open, onClose, onSelectChat, 
           )}
 
           {user && chats.map((chat: ChatSummary) => (
-            <button
+            <div
               key={chat.id}
-              onClick={() => { onSelectChat(chat.id); onClose(); }}
-              className={`w-full group flex items-center gap-2 px-3 py-2.5 rounded-lg text-left transition-colors ${
+              className={`w-full group flex items-center gap-1 rounded-lg transition-colors ${
                 activeChatId === chat.id ? 'bg-cyber-700 text-white' : 'text-slate-300 hover:bg-cyber-800'
               }`}
             >
-              <MessageSquare className="w-4 h-4 shrink-0 text-slate-500" />
-              <span className="flex-1 text-sm truncate">{chat.title}</span>
-              <span
+              <button
+                onClick={() => { onSelectChat(chat.id); onClose(); }}
+                className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2.5 text-left"
+              >
+                <MessageSquare className="w-4 h-4 shrink-0 text-slate-500" />
+                <span className="flex-1 text-sm truncate">{chat.title}</span>
+              </button>
+              <button
                 onClick={(e) => handleDelete(e, chat.id)}
-                className="shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all cursor-pointer"
+                disabled={deletingId === chat.id}
+                className="shrink-0 mr-2 p-2 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-colors"
+                aria-label="Delete chat"
               >
                 {deletingId === chat.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              </span>
-            </button>
+              </button>
+            </div>
           ))}
         </div>
 
